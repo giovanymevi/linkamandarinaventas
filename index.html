@@ -114,8 +114,42 @@
             <p class="total">💰 Total a Pagar: $<span id="v_totalPagar">0.00</span></p>
             <button class="btn-guardar" onclick="guardarVenta()">✅ Guardar Registro</button>
         </div>
+        
+                <!-- ======= Formulario adicional: Registrar Venta (envía a script externo) ======= -->
+                <div class="card">
+                        <h3>Registrar Venta</h3>
+                        <form id="formVenta">
+                            <input name="proveedor" placeholder="Proveedor" required>
+                            <select name="tipoVenta">
+                                <option>Efectivo</option>
+                                <option>Transferencia</option>
+                                <option>Tarjeta</option>
+                            </select>
+                            <input name="nTransf" placeholder="N° Transferencia">
+                            <input name="monto" type="number" placeholder="Monto $" required>
+                            <input name="notaCredito" type="number" placeholder="Nota Crédito $">
+                            <input name="total" type="number" placeholder="Total $" required>
+                            <button>Guardar Venta</button>
+                        </form>
 
-        <div class="card">
+                        <script>
+                        const URL_SCRIPT = 'PEGA_AQUI_LA_URL_DEL_PASO_2';
+
+                        document.getElementById('formVenta').onsubmit = async e => {
+                            e.preventDefault();
+                            const datos = Object.fromEntries(new FormData(e.target));
+              
+                            await fetch(URL_SCRIPT, {
+                                method: 'POST',
+                                body: JSON.stringify(datos)
+                            });
+              
+                            alert('Venta guardada en la planilla!');
+                            e.target.reset();
+                        }
+                        </script>
+
+                </div>
             <h3>Registros del Mes - Ventas</h3>
             <div class="acciones" style="margin-bottom:10px;">
                 <button class="btn-descargar" onclick="descargarExcel('ventas')">📥 Descargar Excel</button>
