@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control Mensual - Calzados BYGA</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; padding: 10px; max-width: 1100px; margin: auto; background: #f1f5f9; }
+        .tabs { display: flex; margin-bottom: 15px; flex-wrap: wrap; }
+        .tab { flex: 1; padding: 12px; background: #cbd5e1; border: none; cursor: pointer; font-weight: bold; min-width: 120px; transition: 0.3s; }
+        .tab.active { background: #2563eb; color: white; }
+        .tab:hover { background: #94a3b8; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .contenido-tab { display: none; }
+        .contenido-tab.active { display: block; }
+        input, select { width: 100%; padding: 10px; margin: 6px 0 12px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+        label { font-weight: 600; font-size: 14px; display: block; margin-top: 8px; }
+        button { padding: 12px 20px; background: #16a34a; color: white; border: none; border-radius: 4px; font-size: 15px; cursor: pointer; transition: 0.2s; }
+        button:hover { opacity: 0.9; }
+        .btn-guardar { width: 100%; margin-top: 6px; }
+        .btn-descargar { background: #dc2626; width: 100%; margin-top: 6px; }
+        .btn-eliminar { background: #ef4444; padding: 4px 10px; font-size: 12px; }
+        .btn-eliminar:hover { background: #b91c1c; }
+        .total { font-size: 20px; font-weight: bold; color: #16a34a; margin: 10px 0; }
+        .total-resumen { font-size: 22px; font-weight: bold; color: #1e293b; }
+        .subtotal { font-size: 16px; color: #2563eb; }
+        h2 { margin-top: 0; color: #1e293b; }
+        h3 { margin: 15px 0 5px; color: #475569; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        hr { border: none; border-top: 1px solid #e2e8f0; margin: 15px 0; }
+        .tabla-contenedor { overflow-x: auto; margin-top: 15px; max-height: 400px; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { background: #334155; color: white; padding: 10px 8px; text-align: left; position: sticky; top: 0; z-index: 2; }
+        td { padding: 8px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
+        tr:hover { background: #f8fafc; }
+        .tabla-vacia { text-align: center; color: #94a3b8; padding: 20px; }
+        .fila-total { background: #fef3c7 !important; font-weight: bold; }
+        .contador { font-size: 13px; color: #64748b; margin-top: 8px; }
+        .acciones { display: flex; gap: 6px; flex-wrap: wrap; }
+        .oculto { display: none; }
+        .resumen-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; text-align: center; }
+        .resumen-item { background: #f8fafc; padding: 15px; border-radius: 8px; }
+        .resumen-item .label { font-size: 14px; color: #475569; }
+        .resumen-item .valor { font-size: 28px; font-weight: bold; color: #0f172a; }
+        .resumen-item .valor.ventas { color: #2563eb; }
+        .resumen-item .valor.cierre { color: #16a34a; }
+        .resumen-item .valor.total { color: #dc2626; }
+        @media (max-width: 700px) { .grid { grid-template-columns: 1fr 1fr; } .resumen-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 500px) { .grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <h1 style="text-align:center; color:#1e293b;">Control Mensual BYGA</h1>
+    
+    <!-- ========== RESUMEN GENERAL ========== -->
+    <div class="card">
+        <h2 style="margin:0 0 10px 0;">📊 Resumen General</h2>
+        <div class="resumen-grid">
+            <div class="resumen-item">
+                <div class="label">Total Ventas (Proveedores)</div>
+                <div class="valor ventas" id="resumenVentas">$0.00</div>
+            </div>
+            <div class="resumen-item">
+                <div class="label">Total Cierre (Máquinas + Efectivo)</div>
+                <div class="valor cierre" id="resumenCierre">$0.00</div>
+            </div>
+            <div class="resumen-item">
+                <div class="label">Total General</div>
+                <div class="valor total" id="resumenGeneral">$0.00</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <button class="tab active" onclick="cambiarTab('ventas')">📋 Formato 1: Ventas</button>
+        <button class="tab" onclick="cambiarTab('cierre')">🏦 Formato 2: Cierre Máquinas + Efectivo</button>
+    </div>
+
+    <!-- ==================== FORMATO 1: VENTAS ==================== -->
+    <div id="ventas" class="contenido-tab active">
+        <div class="card">
+            <h2>Registro de Ventas a Proveedores</h2>
+            <label>Fecha:</label>
+            <input type="date" id="v_fecha">
+            
+            <label>Proveedor:</label>
+            <input type="text" id="v_proveedor" placeholder="Nombre del proveedor">
+            
+            <label>Tipo de Venta:</label>
+            <select id="v_venta" onchange="toggleTransferV()">
+                <option value="Efectivo">Efectivo</option>
+                <option value="Transferencia">Transferencia</option>
+            </select>
+            
+            <div id="v_numTransferDiv" class="oculto">
+                <label>N° Transferencia:</label>
+                <input type="text" id="v_nTransferencia" placeholder="Número de operación">
+            </div>
+            
+            <div class="grid-2">
+                <div>
+                    <label>Monto ($):</label>
+                    <input type="number" id="v_monto" step="0.01" oninput="calcularTotalV()" placeholder="0.00">
+                </div>
+                <div>
+                    <label>Nota Crédito ($):</label>
+                    <input type="number" id="v_notaCredito" step="0.01" value="0" oninput="calcularTotalV()" placeholder="0.00">
+                </div>
+            </div>
+            
+            <p class="total">💰 Total a Pagar: $<span id="v_totalPagar">0.00</span></p>
+            <button class="btn-guardar" onclick="guardarVenta()">✅ Guardar Registro</button>
+        </div>
+
+        <div class="card">
+            <h3>Registros del Mes - Ventas</h3>
+            <div class="acciones" style="margin-bottom:10px;">
+                <button class="btn-descargar" onclick="descargarExcel('ventas')">📥 Descargar Excel</button>
+                <button style="background:#6b7280; flex:1;" onclick="borrarTodos('ventas')">🗑️ Borrar todos</button>
+            </div>
+            <div class="tabla-contenedor">
+                <table id="tablaVentas">
+                    <thead><tr>
+                        <th>Fecha</th>
+                        <th>Proveedor</th>
+                        <th>Tipo Venta</th>
+                        <th>N° Transf</th>
+                        <th>Monto</th>
+                        <th>Nota Crédito</th>
+                        <th>Total</th>
+                        <th>Acción</th>
+                    </tr></thead>
+                    <tbody id="cuerpoVentas"></tbody>
+                </table>
+            </div>
+            <div class="contador" id="contadorVentas">0 registros</div>
+            <div class="total" style="margin-top:10px;">Total Ventas: $<span id="sumaVentas">0.00</span></div>
+        </div>
+    </div>
+
+    <!-- ==================== FORMATO 2: CIERRE MÁQUINAS + EFECTIVO ==================== -->
+    <div id="cierre" class="contenido-tab">
+        <div class="card">
+            <h2>Registro de Totales por Máquina y Efectivo</h2>
+            <label>Fecha:</label>
+            <input type="date" id="c_fecha">
+            
+            <div class="grid">
+                <div>
+                    <label>Máquina 1 ($):</label>
+                    <input type="number" id="c_maq1" step="0.01" placeholder="0.00" oninput="calcularTotalC()">
+                </div>
+                <div>
+                    <label>Máquina 2 ($):</label>
+                    <input type="number" id="c_maq2" step="0.01" placeholder="0.00" oninput="calcularTotalC()">
+                </div>
+                <div>
+                    <label>Máquina 3 ($):</label>
+                    <input type="number" id="c_maq3" step="0.01" placeholder="0.00" oninput="calcularTotalC()">
+                </div>
+                <div>
+                    <label>Efectivo ($):</label>
+                    <input type="number" id="c_efectivo" step="0.01" placeholder="0.00" oninput="calcularTotalC()">
+                </div>
+            </div>
+            
+            <p class="total">🔢 Suma Total (Máquinas + Efectivo): $<span id="c_totalMaquinas">0.00</span></p>
+            <button class="btn-guardar" onclick="guardarCierre()">✅ Guardar Registro</button>
+        </div>
+
+        <div class="card">
+            <h3>Registros del Mes - Cierre</h3>
+            <div class="acciones" style="margin-bottom:10px;">
+                <button class="btn-descargar" onclick="descargarExcel('cierre')">📥 Descargar Excel</button>
+                <button style="background:#6b7280; flex:1;" onclick="borrarTodos('cierre')">🗑️ Borrar todos</button>
+            </div>
+            <div class="tabla-contenedor">
+                <table id="tablaCierre">
+                    <thead><tr>
+                        <th>Fecha</th>
+                        <th>Máquina 1</th>
+                        <th>Máquina 2</th>
+                        <th>Máquina 3</th>
+                        <th>Efectivo</th>
+                        <th>Suma</th>
+                        <th>Acción</th>
+                    </tr></thead>
+                    <tbody id="cuerpoCierre"></tbody>
+                </table>
+            </div>
+            <div class="contador" id="contadorCierre">0 registros</div>
+            <div class="total" style="margin-top:10px;">Gran Total (todos los registros): $<span id="sumaCierre">0.00</span></div>
+        </div>
+    </div>
+
+    <script>
+        // ---------- Cambio de pestañas ----------
+        function cambiarTab(tab) {
+            document.querySelectorAll('.contenido-tab').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+            document.getElementById(tab).classList.add('active');
+            document.querySelector(`.tab[onclick="cambiarTab('${tab}')"]`).classList.add('active');
+            if (tab === 'ventas') cargarVentas();
+            else cargarCierre();
+            actualizarResumen();
+        }
+
+        // ---------- UTILIDADES ----------
+        function getFechaHoy() {
+            const hoy = new Date();
+            return hoy.toISOString().split('T')[0];
+        }
+
+        // ---------- RESUMEN GENERAL ----------
+        function actualizarResumen() {
+            const ventas = JSON.parse(localStorage.getItem('ventas')) || [];
+            const cierre = JSON.parse(localStorage.getItem('cierre')) || [];
+            const totalVentas = ventas.reduce((sum, r) => sum + (r.total || 0), 0);
+            const totalCierre = cierre.reduce((sum, r) => sum + (r.suma || 0), 0);
+            document.getElementById('resumenVentas').textContent = `$${totalVentas.toFixed(2)}`;
+            document.getElementById('resumenCierre').textContent = `$${totalCierre.toFixed(2)}`;
+            document.getElementById('resumenGeneral').textContent = `$${(totalVentas + totalCierre).toFixed(2)}`;
+        }
+
+        // ---------- FORMATO 1: VENTAS ----------
+        function toggleTransferV() {
+            const tipo = document.getElementById('v_venta').value;
+            document.getElementById('v_numTransferDiv').classList.toggle('oculto', tipo !== 'Transferencia');
+        }
+
+        function calcularTotalV() {
+            const monto = parseFloat(document.getElementById('v_monto').value) || 0;
+            const nota = parseFloat(document.getElementById('v_notaCredito').value) || 0;
+            const total = monto - nota;
+            document.getElementById('v_totalPagar').textContent = total.toFixed(2);
+        }
+
+        function guardarVenta() {
+            const fecha = document.getElementById('v_fecha').value;
+            const proveedor = document.getElementById('v_proveedor').value.trim();
+            const tipoVenta = document.getElementById('v_venta').value;
+            const nTransferencia = document.getElementById('v_nTransferencia').value.trim();
+            const monto = parseFloat(document.getElementById('v_monto').value) || 0;
+            const notaCredito = parseFloat(document.getElementById('v_notaCredito').value) || 0;
+            const total = monto - notaCredito;
+
+            if (!fecha || !proveedor || monto <= 0) {
+                alert('Por favor, complete Fecha, Proveedor y Monto (mayor a 0).');
+                return;
+            }
+
+            const registro = { fecha, proveedor, tipoVenta, nTransferencia, monto, notaCredito, total };
+            let datos = JSON.parse(localStorage.getItem('ventas')) || [];
+            datos.push(registro);
+            localStorage.setItem('ventas', JSON.stringify(datos));
+            cargarVentas();
+            actualizarResumen();
+            // Limpiar campos
+            document.getElementById('v_proveedor').value = '';
+            document.getElementById('v_monto').value = '';
+            document.getElementById('v_notaCredito').value = '0';
+            document.getElementById('v_nTransferencia').value = '';
+            document.getElementById('v_fecha').value = getFechaHoy();
+            calcularTotalV();
+            alert('Registro guardado correctamente.');
+        }
+
+        function cargarVentas() {
+            const datos = JSON.parse(localStorage.getItem('ventas')) || [];
+            const tbody = document.getElementById('cuerpoVentas');
+            if (datos.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="tabla-vacia">No hay registros de ventas.</td></tr>`;
+                document.getElementById('contadorVentas').textContent = '0 registros';
+                document.getElementById('sumaVentas').textContent = '0.00';
+                return;
+            }
+            let html = '';
+            let suma = 0;
+            datos.forEach((reg, index) => {
+                suma += reg.total;
+                html += `<tr>
+                    <td>${reg.fecha}</td>
+                    <td>${reg.proveedor}</td>
+                    <td>${reg.tipoVenta}</td>
+                    <td>${reg.nTransferencia || '-'}</td>
+                    <td>${reg.monto.toFixed(2)}</td>
+                    <td>${reg.notaCredito.toFixed(2)}</td>
+                    <td>${reg.total.toFixed(2)}</td>
+                    <td><button class="btn-eliminar" onclick="eliminarRegistro('ventas', ${index})">Eliminar</button></td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+            document.getElementById('contadorVentas').textContent = `${datos.length} registros`;
+            document.getElementById('sumaVentas').textContent = suma.toFixed(2);
+        }
+
+        // ---------- FORMATO 2: CIERRE MÁQUINAS + EFECTIVO ----------
+        function calcularTotalC() {
+            const m1 = parseFloat(document.getElementById('c_maq1').value) || 0;
+            const m2 = parseFloat(document.getElementById('c_maq2').value) || 0;
+            const m3 = parseFloat(document.getElementById('c_maq3').value) || 0;
+            const ef = parseFloat(document.getElementById('c_efectivo').value) || 0;
+            const suma = m1 + m2 + m3 + ef;
+            document.getElementById('c_totalMaquinas').textContent = suma.toFixed(2);
+        }
+
+        function guardarCierre() {
+            const fecha = document.getElementById('c_fecha').value;
+            const maq1 = parseFloat(document.getElementById('c_maq1').value) || 0;
+            const maq2 = parseFloat(document.getElementById('c_maq2').value) || 0;
+            const maq3 = parseFloat(document.getElementById('c_maq3').value) || 0;
+            const efectivo = parseFloat(document.getElementById('c_efectivo').value) || 0;
+            const suma = maq1 + maq2 + maq3 + efectivo;
+
+            if (!fecha) {
+                alert('Por favor, seleccione una fecha.');
+                return;
+            }
+            if (maq1 === 0 && maq2 === 0 && maq3 === 0 && efectivo === 0) {
+                alert('Debe ingresar al menos un monto mayor a 0 en alguna categoría.');
+                return;
+            }
+
+            const registro = { fecha, maq1, maq2, maq3, efectivo, suma };
+            let datos = JSON.parse(localStorage.getItem('cierre')) || [];
+            datos.push(registro);
+            localStorage.setItem('cierre', JSON.stringify(datos));
+            cargarCierre();
+            actualizarResumen();
+            // Limpiar campos
+            document.getElementById('c_maq1').value = '';
+            document.getElementById('c_maq2').value = '';
+            document.getElementById('c_maq3').value = '';
+            document.getElementById('c_efectivo').value = '';
+            document.getElementById('c_fecha').value = getFechaHoy();
+            calcularTotalC();
+            alert('Registro guardado correctamente.');
+        }
+
+        function cargarCierre() {
+            const datos = JSON.parse(localStorage.getItem('cierre')) || [];
+            const tbody = document.getElementById('cuerpoCierre');
+            if (datos.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="tabla-vacia">No hay registros de cierre.</td></tr>`;
+                document.getElementById('contadorCierre').textContent = '0 registros';
+                document.getElementById('sumaCierre').textContent = '0.00';
+                return;
+            }
+            let html = '';
+            let granTotal = 0;
+            datos.forEach((reg, index) => {
+                granTotal += reg.suma;
+                html += `<tr>
+                    <td>${reg.fecha}</td>
+                    <td>${reg.maq1.toFixed(2)}</td>
+                    <td>${reg.maq2.toFixed(2)}</td>
+                    <td>${reg.maq3.toFixed(2)}</td>
+                    <td>${reg.efectivo.toFixed(2)}</td>
+                    <td><strong>${reg.suma.toFixed(2)}</strong></td>
+                    <td><button class="btn-eliminar" onclick="eliminarRegistro('cierre', ${index})">Eliminar</button></td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+            document.getElementById('contadorCierre').textContent = `${datos.length} registros`;
+            document.getElementById('sumaCierre').textContent = granTotal.toFixed(2);
+        }
+
+        // ---------- ELIMINAR REGISTRO ----------
+        function eliminarRegistro(tipo, index) {
+            if (!confirm('¿Eliminar este registro?')) return;
+            let datos = JSON.parse(localStorage.getItem(tipo)) || [];
+            datos.splice(index, 1);
+            localStorage.setItem(tipo, JSON.stringify(datos));
+            if (tipo === 'ventas') cargarVentas();
+            else cargarCierre();
+            actualizarResumen();
+        }
+
+        // ---------- BORRAR TODOS ----------
+        function borrarTodos(tipo) {
+            if (!confirm(`¿Eliminar TODOS los registros de ${tipo === 'ventas' ? 'Ventas' : 'Cierre'}?`)) return;
+            localStorage.removeItem(tipo);
+            if (tipo === 'ventas') cargarVentas();
+            else cargarCierre();
+            actualizarResumen();
+        }
+
+        // ---------- DESCARGAR EXCEL ----------
+        function descargarExcel(tipo) {
+            const datos = JSON.parse(localStorage.getItem(tipo)) || [];
+            if (datos.length === 0) {
+                alert('No hay datos para descargar.');
+                return;
+            }
+            let filas = [];
+            if (tipo === 'ventas') {
+                filas = datos.map(r => ({
+                    Fecha: r.fecha,
+                    Proveedor: r.proveedor,
+                    'Tipo Venta': r.tipoVenta,
+                    'N° Transferencia': r.nTransferencia || '',
+                    Monto: r.monto,
+                    'Nota Crédito': r.notaCredito,
+                    Total: r.total
+                }));
+            } else {
+                filas = datos.map(r => ({
+                    Fecha: r.fecha,
+                    'Máquina 1': r.maq1,
+                    'Máquina 2': r.maq2,
+                    'Máquina 3': r.maq3,
+                    Efectivo: r.efectivo,
+                    'Suma Total': r.suma
+                }));
+            }
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(filas);
+            XLSX.utils.book_append_sheet(wb, ws, 'Datos');
+            const nombre = `${tipo}_${new Date().toISOString().slice(0,10)}.xlsx`;
+            XLSX.writeFile(wb, nombre);
+        }
+
+        // ---------- INICIALIZACIÓN ----------
+        document.addEventListener('DOMContentLoaded', function() {
+            const hoy = getFechaHoy();
+            document.getElementById('v_fecha').value = hoy;
+            document.getElementById('c_fecha').value = hoy;
+            cargarVentas();
+            cargarCierre();
+            calcularTotalV();
+            calcularTotalC();
+            toggleTransferV();
+            actualizarResumen();
+        });
+    </script>
+</body>
+</html>
